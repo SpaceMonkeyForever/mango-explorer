@@ -344,6 +344,42 @@ def build_cancel_perp_order_instructions(context: Context, wallet: Wallet, accou
     ]
     return CombinableInstructions(signers=[], instructions=instructions)
 
+# # 🥭 build_cancel_all_perp_orders_instruction function
+#
+# Builds the instructions necessary for cancelling all perp orders.
+#
+def build_cancel_all_perp_orders_instructions(context: Context, wallet: Wallet, account: Account, perp_market_details: PerpMarketDetails, limit: int) -> CombinableInstructions:
+    data = layouts.CANCEL_ALL_PERP_ORDERS.build(
+        {
+            "limit": Decimal(limit),
+        })
+
+    # Cancel all perp open orders (batch cancel)
+    #
+    # Accounts expected: 6
+    # 0. `[]` mango_group_ai - MangoGroup
+    # 1. `[writable]` mango_account_ai - MangoAccount
+    # 2. `[signer]` owner_ai - Owner of Mango Account
+    # 3. `[writable]` perp_market_ai - PerpMarket
+    # 4. `[writable]` bids_ai - Bids acc
+    # 5. `[writable]` asks_ai - Asks acc
+    instructions = [
+        TransactionInstruction(
+            keys=[
+                AccountMeta(is_signer=False, is_writable=False, pubkey=account.group_address),
+                AccountMeta(is_signer=False, is_writable=True, pubkey=account.address),
+                AccountMeta(is_signer=True, is_writable=False, pubkey=wallet.address),
+                AccountMeta(is_signer=False, is_writable=True, pubkey=perp_market_details.address),
+                AccountMeta(is_signer=False, is_writable=True, pubkey=perp_market_details.bids),
+                AccountMeta(is_signer=False, is_writable=True, pubkey=perp_market_details.asks)
+            ],
+            program_id=context.mango_program_address,
+            data=data
+        )
+    ]
+
+    return CombinableInstructions(signers=[], instructions=instructions)
+
 
 def build_place_perp_order_instructions(context: Context, wallet: Wallet, group: Group, account: Account, perp_market_details: PerpMarketDetails, price: Decimal, quantity: Decimal, client_order_id: int, side: Side, order_type: OrderType) -> CombinableInstructions:
     # { buy: 0, sell: 1 }

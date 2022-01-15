@@ -1283,6 +1283,22 @@ CANCEL_PERP_ORDER = construct.Struct(
 )
 
 
+# Cancel all Perp orders
+#
+# 0. `[]` mangoGroupPk
+# 1. `[writable]` mangoAccountPk
+# 2. `[signer]` ownerPk
+# 3. `[writable]` perpMarketPk
+# 4. `[writable]` bidsPk
+# 5. `[writable]` asksPk
+# 6. `[writable]` eventQueuePk
+CANCEL_ALL_PERP_ORDERS = construct.Struct(
+    "variant" / construct.Const(39, construct.BytesInteger(4, swapped=True)),
+
+    "limit" / DecimalAdapter(1),
+)
+
+
 # /// Deposit funds into mango account
 # ///
 # /// Accounts expected by this instruction (8):
@@ -1565,7 +1581,7 @@ InstructionParsersByVariant = {
     36: UNSPECIFIED,  # WITHDRAW_MSRM,
     37: UNSPECIFIED,  # CHANGE_PERP_MARKET_PARAMS,
     38: UNSPECIFIED,  # SET_GROUP_ADMIN,
-    39: UNSPECIFIED,  # CANCEL_ALL_PERP_ORDERS,
+    39: CANCEL_ALL_PERP_ORDERS,  # CANCEL_ALL_PERP_ORDERS,
     40: UNSPECIFIED,  # FORCE_SETTLE_QUOTE_POSITIONS,
     41: PLACE_SPOT_ORDER_2,  # PLACE_SPOT_ORDER_2,
     42: UNSPECIFIED,  # INIT_ADVANCED_ORDERS,
