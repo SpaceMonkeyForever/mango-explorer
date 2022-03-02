@@ -327,7 +327,8 @@ class NullTransactionStatusCollector(TransactionStatusCollector):
 
 
 class TransactionWatcher:
-    def __init__(self, client: Client, slot_holder: SlotHolder, signature: str, collector: TransactionStatusCollector):
+    def __init__(self, client: Client, slot_holder: SlotHolder, signature: str, started_at: datetime = datetime.now(), collector: TransactionStatusCollector = NullTransactionStatusCollector):
+        self.started_at = started_at
         self._logger: logging.Logger = logging.getLogger(self.__class__.__name__)
         self.client: Client = client
         self.slot_holder: SlotHolder = slot_holder
@@ -335,13 +336,12 @@ class TransactionWatcher:
         self.collector = collector
 
     def report_on_transaction(self) -> None:
-        started_at: datetime = datetime.now()
-        for pause in [0.1, 0.2, 0.3, 0.4, 0.5, 0.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]:
+        for pause in [1, 2, 3, 3, 5, 5, 10]:
             transaction_response = self.client.get_signature_statuses([self.signature])
             if "result" in transaction_response and "value" in transaction_response["result"]:
                 [status] = transaction_response["result"]["value"]
                 if status is not None:
-                    delta: timedelta = datetime.now() - started_at
+                    delta: timedelta = datetime.now() - self.started_at
                     time_taken: float = delta.seconds + delta.microseconds / 1000000
 
                     # value should be a dict that looks like:
@@ -367,23 +367,23 @@ class TransactionWatcher:
                         self._logger.warning(
                             f"Transaction {self.signature} failed after {time_taken:.2f} seconds with error {err}")
                         self.collector.add_transaction(TransactionStatus(
-                            self.signature, TransactionOutcome.FAIL, err, started_at, delta))
+                            self.signature, TransactionOutcome.FAIL, err, self.started_at, delta))
                         return
 
                     confirmation_status: str = status["confirmationStatus"]
                     slot: int = status["slot"]
                     self.slot_holder.require_data_from_fresh_slot(slot)
                     self.collector.add_transaction(TransactionStatus(
-                        self.signature, TransactionOutcome.SUCCESS, None, started_at, delta))
+                        self.signature, TransactionOutcome.SUCCESS, None, self.started_at, delta))
                     self._logger.info(
                         f"Transaction {self.signature} reached confirmation status '{confirmation_status}' in slot {slot} after {time_taken:.2f} seconds")
                     return
             time.sleep(pause)
 
-        delta = datetime.now() - started_at
+        delta = datetime.now() - self.started_at
         time_wasted_looking: float = delta.seconds + delta.microseconds / 1000000
         self.collector.add_transaction(TransactionStatus(
-            self.signature, TransactionOutcome.TIMEOUT, None, started_at, delta))
+            self.signature, TransactionOutcome.TIMEOUT, None, self.started_at, delta))
         self._logger.warning(
             f"Transaction {self.signature} disappeared despite spending {time_wasted_looking:.2f} seconds waiting for it")
 
@@ -635,7 +635,7 @@ class BetterClient:
         self.encoding: str = encoding
         self.blockhash_cache_duration: int = blockhash_cache_duration
         self.rpc_caller: CompoundRPCCaller = rpc_caller
-        self.executor: Executor = ThreadPoolExecutor()
+        self.executor: Executor = ThreadPoolExecutor(max_workers=32)
         self.transaction_status_collector: TransactionStatusCollector = transaction_status_collector
 
     @staticmethod
@@ -792,7 +792,7 @@ class BetterClient:
 
                 if signature != _STUB_TRANSACTION_SIGNATURE:
                     tx_reporter: TransactionWatcher = TransactionWatcher(
-                        self.compatible_client, self.rpc_caller.current.slot_holder, signature, self.transaction_status_collector)
+                        self.compatible_client, self.rpc_caller.current.slot_holder, signature, datetime.now(), self.transaction_status_collector)
                     self.executor.submit(tx_reporter.report_on_transaction)
                 else:
                     self._logger.error("Could not get status for stub signature")
