@@ -100,7 +100,11 @@ class ReconnectingWebsocket:
         thread.start()
 
     def send(self, message: str) -> None:
-        self._ws.send(message)
+        try:
+            self._ws.send(message)
+        except Exception:
+            self.__on_error()
+
 
     def wait_until_open(self, timeout: float) -> bool:
         return self.__open_event.wait(timeout)
@@ -123,11 +127,14 @@ class ReconnectingWebsocket:
                 self.__open_event.clear()
                 self.disconnected.on_next(local_now())
             except Exception:
-                self._logger.warning(
-                    f"Websocket received error: {traceback.format_exc()}"
-                )
-                if self.pause_on_error > 0:
-                    self._logger.warning(
-                        f"Pausing for {self.pause_on_error} seconds before trying to reconnect."
-                    )
-                    time.sleep(self.pause_on_error)
+                self.__on_error()
+
+    def __on_error(self):
+        self._logger.warning(
+            f"Websocket received error: {traceback.format_exc()}"
+        )
+        if self.pause_on_error > 0:
+            self._logger.warning(
+                f"Pausing for {self.pause_on_error} seconds before trying to reconnect."
+            )
+            time.sleep(self.pause_on_error)
