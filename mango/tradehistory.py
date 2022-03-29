@@ -53,6 +53,10 @@ class TradeHistory:
         "ClientId",
     ]
 
+    COLUMNS_EXTRA_PERP = [
+        "taker"
+    ]
+
     __perp_column_name_mapper = {
         "loadTimestamp": "Timestamp",
         "seqNum": "SequenceNumber",
@@ -259,7 +263,7 @@ class TradeHistory:
             frame["maker"],
         )
 
-        return frame[TradeHistory.COLUMNS]
+        return frame[TradeHistory.COLUMNS + TradeHistory.COLUMNS_EXTRA_PERP]
 
     @staticmethod
     def __download_all_spots(context: Context, account: Account) -> pandas.DataFrame:
